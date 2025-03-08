@@ -4,14 +4,23 @@ from app.services.ai_service import analyze_spending
 
 ai_routes = Blueprint("ai_routes", __name__)
 
-@ai_routes.route("/ai-insights", methods=["GET"])
+@ai_routes.route("/ai-insights", methods=["GET", "POST"])
 @jwt_required()
 def ai_insights():
-    """Returns AI-generated financial insights based on timeframe."""
+    """Handles AI financial analysis & chat-based interactions."""
     user_id = get_jwt_identity()
-    
-    # ✅ Get timeframe from query params (default to 'monthly')
-    timeframe = request.args.get("timeframe", "monthly")
-    
-    insights = analyze_spending(user_id, timeframe)
-    return jsonify(insights), 200
+
+    if request.method == "GET":
+        timeframe = request.args.get("timeframe", "monthly")
+        insights = analyze_spending(user_id, timeframe)
+        return jsonify(insights), 200
+
+    elif request.method == "POST":
+        data = request.get_json()
+        prompt_text = data.get("prompt", "")
+
+        if not prompt_text:
+            return jsonify({"error": "Prompt is required!"}), 400
+
+        insights = analyze_spending(user_id, "monthly", prompt_text)
+        return jsonify(insights), 200

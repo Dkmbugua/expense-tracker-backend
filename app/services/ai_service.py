@@ -16,32 +16,28 @@ def detect_language(text):
     kiswahili_words = ["pesa", "gharama", "bajeti", "matatu", "shilingi", "chakula", "kazi", "shule", "malipo"]
     return any(word in text.lower() for word in kiswahili_words)
 
-def analyze_spending(user_id, timeframe="monthly", prompt_text=""):
-    """Fetch AI-powered financial advice from Hugging Face API, predict next month's spending, and respond in Kiswahili if needed."""
+def analyze_spending(user_id, timeframe="monthly", user_prompt=""):
+    """Fetch AI-powered financial insights & predict trends."""
 
-    # ✅ Get time filter based on timeframe
     now = datetime.utcnow()
-    if timeframe == "minute":
-        start_time = now - timedelta(minutes=60)
-    elif timeframe == "daily":
-        start_time = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    elif timeframe == "weekly":
-        start_time = now - timedelta(days=7)
-    elif timeframe == "monthly":
-        start_time = now - timedelta(days=30)
-    else:
-        return {"message": "Invalid timeframe. Use 'minute', 'daily', 'weekly', or 'monthly'."}
+    timeframes = {
+        "minute": now - timedelta(minutes=60),
+        "daily": now.replace(hour=0, minute=0, second=0, microsecond=0),
+        "weekly": now - timedelta(days=7),
+        "monthly": now - timedelta(days=30),
+    }
+    start_time = timeframes.get(timeframe, now - timedelta(days=30))
 
     # ✅ Fetch transactions
     expenses = Expense.query.filter(Expense.user_id == user_id, Expense.date >= start_time).all()
     incomes = Income.query.filter(Income.user_id == user_id, Income.date >= start_time).all()
 
-    if not expenses:
-        return {"message": f"No {timeframe} transactions to analyze."}
+    if not expenses and not incomes:
+        return {"message": f"No transactions found for {timeframe}."}
 
-    # ✅ Convert to Kenyan Shillings (KSH)
-    total_spent_ksh = sum(exp.amount for exp in expenses)
-    total_earned_ksh = sum(inc.amount for inc in incomes)
+    # ✅ Compute total income & spending
+    total_spent = sum(exp.amount for exp in expenses)
+    total_earned = sum(inc.amount for inc in incomes)
 
     # ✅ Find top spending category
     category_spend = {}
@@ -50,42 +46,26 @@ def analyze_spending(user_id, timeframe="monthly", prompt_text=""):
 
     top_category = max(category_spend, key=category_spend.get) if category_spend else "No category"
 
-    # ✅ Predict Next Month’s Spending Using Trend Analysis
-    prev_month_expenses = Expense.query.filter(
-        Expense.user_id == user_id, Expense.date >= start_time - timedelta(days=30)
-    ).all()
+    # ✅ Predict Future Spending
+    prev_month_expenses = Expense.query.filter(Expense.user_id == user_id, Expense.date >= start_time - timedelta(days=30)).all()
     prev_month_spent = sum(exp.amount for exp in prev_month_expenses)
 
-    if prev_month_spent > 0:
-        growth_rate = (total_spent_ksh - prev_month_spent) / prev_month_spent
+    growth_rate = ((total_spent - prev_month_spent) / prev_month_spent) if prev_month_spent > 0 else 0.05
+    predicted_next_month_spending = round(total_spent * (1 + growth_rate), 2)
+
+    # ✅ Detect Kiswahili
+    is_kiswahili = detect_language(user_prompt)
+
+    # ✅ AI Prompt for Chat or Financial Insights
+    if user_prompt:
+        prompt = f"User asked: {user_prompt}. Their income: KSH {total_earned}, expenses: KSH {total_spent}, top category: {top_category}."
     else:
-        growth_rate = 0.05  # Assume 5% growth if no previous data
-
-    predicted_next_month_spending = total_spent_ksh * (1 + growth_rate)
-
-    # ✅ Detect Kiswahili Language in User's Input
-    is_kiswahili = detect_language(prompt_text)
-
-    # ✅ Generate AI Prompt for Financial Advice (In English or Kiswahili)
-    prompt = (
-        f"My total spending in the last {timeframe} is KSH {total_spent_ksh}. "
-        f"My top spending category is {top_category}. "
-        f"My total income is KSH {total_earned_ksh}. "
-        f"Predict my spending for next month and provide financial advice specific to a Kenyan student. "
-        "Include budgeting strategies, transport cost savings, and realistic side hustles for students such as freelance work, online tutoring, or local business ideas."
-    )
-
-    # ✅ If Kiswahili detected, modify AI prompt
-    if is_kiswahili:
         prompt = (
-            f"Gharama zangu kwa wiki iliyopita ni KSH {total_spent_ksh}. "
-            f"Kategoria yangu ya matumizi makubwa ni {top_category}. "
-            f"Mapato yangu ni KSH {total_earned_ksh}. "
-            "Tafadhali tabiri matumizi yangu kwa mwezi ujao na unipe ushauri wa kifedha maalum kwa mwanafunzi wa Kenya. "
-            "Niwekee mikakati ya bajeti, jinsi ya kupunguza gharama za usafiri, na kazi za kufanya upande kama vile uandishi wa mtandaoni, kufundisha wanafunzi wengine, au biashara ndogo ndogo."
+            f"My financial summary for {timeframe}: Spent KSH {total_spent}, earned KSH {total_earned}. "
+            f"Top category: {top_category}. Predict my next month's spending and provide budgeting tips."
         )
 
-    # ✅ Send request to Hugging Face API
+    # ✅ Call Hugging Face AI API
     response = requests.post(
         "https://api-inference.huggingface.co/models/tiiuae/falcon-7b-instruct",
         headers={"Authorization": f"Bearer {HUGGINGFACE_API_KEY}"},
@@ -96,15 +76,20 @@ def analyze_spending(user_id, timeframe="monthly", prompt_text=""):
         return {"message": "AI service unavailable"}
 
     ai_response = response.json()[0]["generated_text"]
+    ai_response = " ".join(ai_response.split())  # Clean whitespace
 
-    # ✅ Clean AI response for better readability
-    ai_response = ai_response.replace("\n", " ")  # Remove unnecessary newlines
-    ai_response = " ".join(ai_response.split())  # Remove extra spaces
+    # ✅ Data for Graphs (Historical & Predicted Trends)
+    trend_data = [
+        {"name": "Last Month", "spending": prev_month_spent, "savings": total_earned - prev_month_spent},
+        {"name": "This Month", "spending": total_spent, "savings": total_earned - total_spent},
+        {"name": "Next Month (Predicted)", "spending": predicted_next_month_spending, "savings": total_earned - predicted_next_month_spending}
+    ]
 
     return {
-        "total_spent_ksh": total_spent_ksh,
-        "total_earned_ksh": total_earned_ksh,
+        "total_spent": total_spent,
+        "total_earned": total_earned,
         "top_category": top_category,
-        "predicted_next_month_spending": round(predicted_next_month_spending, 2),
-        "ai_insights": ai_response
+        "predicted_next_month_spending": predicted_next_month_spending,
+        "ai_insights": ai_response,
+        "trend_data": trend_data
     }
