@@ -1,12 +1,15 @@
-from flask import Flask
+from flask import Flask, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
 from config import Config
-from flask_migrate import Migrate 
+from flask_migrate import Migrate
+import os
+
+
 
 # Initialize Flask app
-app = Flask(__name__)
+app = Flask(__name__, static_folder="static", static_url_path="/static")
 app.config.from_object(Config)
 
 from app.db import db  # Ensure db is imported after app is created
@@ -33,6 +36,12 @@ def home():
     return {"message": "Welcome to the Expense Tracker API!"}, 200
 
 app.add_url_rule("/", "home", home)
+
+
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    return send_from_directory(os.path.join(os.getcwd(), "static"), filename)  # ✅ Ensures Flask finds the correct folder
+
 
 # Create the database inside app context
 def create_database():
