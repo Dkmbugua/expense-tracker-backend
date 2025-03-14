@@ -8,8 +8,11 @@ class User(db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(200), nullable=False)
 
-    expenses = relationship("Expense", back_populates="user", cascade="all, delete-orphan")  # ✅ Relationship
-    income = relationship("Income", back_populates="user", cascade="all, delete-orphan")  # ✅ Relationship
+    expenses = relationship("Expense", back_populates="user", cascade="all, delete-orphan")  
+    income = relationship("Income", back_populates="user", cascade="all, delete-orphan")  
+
+    # ✅ Ensure correct reference to BudgetGoal
+    budget_goals = relationship("BudgetGoal", back_populates="user", cascade="all, delete-orphan")
 
     def set_password(self, password):
         """Hashes the password with PBKDF2 instead of Scrypt"""

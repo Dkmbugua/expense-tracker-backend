@@ -17,13 +17,21 @@
     "mode":"default"
   },
   "labels":{
-
+    "textcat":[
+      "savings",
+      "budgeting",
+      "investments",
+      "loans",
+      "student_finance",
+      "nairobi_life",
+      "savings_goal"
+    ]
   },
   "pipeline":[
-
+    "textcat"
   ],
   "components":[
-
+    "textcat"
   ],
   "disabled":[
 

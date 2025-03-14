@@ -3,7 +3,10 @@
     "savings",
     "budgeting",
     "investments",
-    "loans"
+    "loans",
+    "student_finance",
+    "nairobi_life",
+    "savings_goal"
   ],
   "threshold":0.5,
   "positive_label":null
