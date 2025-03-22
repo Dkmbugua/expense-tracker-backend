@@ -26,12 +26,16 @@ from app.routes.expenses_routes import expenses_routes  # ✅ Import expense rou
 from app.routes.income_routes import income_routes  # ✅ Import expense routes
 from app.routes.ai_routes import ai_routes
 from app.routes.budget_routes import budget_routes
+from app.routes.subscription_routes import subscription_bp
+
+
 
 app.register_blueprint(auth_routes, url_prefix="/api/auth")
 app.register_blueprint(expenses_routes, url_prefix="/api")
 app.register_blueprint(income_routes, url_prefix="/api")
 app.register_blueprint(ai_routes, url_prefix="/api")
 app.register_blueprint(budget_routes, url_prefix="/api")
+app.register_blueprint(subscription_bp, url_prefix="/api")
 
 # Define a Default Route
 def home():

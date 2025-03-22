@@ -1,5 +1,6 @@
 from app.db import db  # ✅ Ensure using the correct db instance
 from sqlalchemy.orm import relationship
+from datetime import datetime
 
 class BudgetGoal(db.Model):
     """Stores user budget goals for specific months"""
@@ -12,7 +13,9 @@ class BudgetGoal(db.Model):
     month = db.Column(db.Integer, nullable=False)  # Stores the month (1-12)
     year = db.Column(db.Integer, nullable=False)  # Stores the year
 
-    # ✅ Corrected relationship to match "budget_goals" in User
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)  # ✅ Added
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)  # ✅ Added
+
     user = relationship("User", back_populates="budget_goals")  
 
     def to_dict(self):
@@ -24,4 +27,6 @@ class BudgetGoal(db.Model):
             "description": self.description,
             "month": self.month,
             "year": self.year,
+            "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            "updated_at": self.updated_at.strftime("%Y-%m-%d %H:%M:%S"),
         }
